@@ -28,28 +28,20 @@ def criar_tabela():
         )
     ''')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS prescricao (
-            id_pres INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS estoque (
+            id_estoque INTEGER PRIMARY KEY AUTOINCREMENT,
             id_paciente INTEGER NOT NULL,
             id_medicamento INTEGER NOT NULL,
-            dosagem_diaria INTEGER not null default 0,
-            Miligrama REAL not null,
+            dosagem_diaria INTEGER not null default 1,
+            miligrama REAL not null,
+            quantidade_atual INT NOT NULL,
+            alerta INT NOT NULL,
             observacao TEXT,
             FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) on delete cascade,
             FOREIGN KEY (id_medicamento) REFERENCES medicamento(id_medicamento) on delete cascade
         )
     ''')
 
-    cursor.execute('''
-        CREATE TABLE if not exists estoque (
-            id_estoque INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_medicamento INT NOT NULL,
-            quantidade_atual INT NOT NULL,
-            unidade_alerta INT NOT NULL,
-            FOREIGN KEY (id_medicamento) REFERENCES medicamento(id_medicamento) ON DELETE CASCADE
-);           
-                   
-                   ''')
     conn.commit()
     conn.close()
 
@@ -72,31 +64,31 @@ def inserir_paciente(nome, observacao):
     finally:
         conn.close()
 
-def inserir_medicamento(nome, tipo, descricao):
+def inserir_medicamento(nome, descricao):
     conn = conectar_banco()
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            INSERT INTO medicamento (nome, tipo, descricao)
-            VALUES (?, ?, ?)
-        ''', (nome, tipo, descricao))
+            INSERT INTO medicamento (nome, descricao)
+            VALUES (?, ?)
+        ''', (nome, descricao))
         conn.commit()
     except sqlite3.IntegrityError:
         print("Medicamento já cadastrado.")
     finally:
         conn.close()
 
-def inserir_prescricao(id_paciente, id_medicamento, dosagem_fixa, dosagem_diaria, observacao):
+def inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao):
     conn = conectar_banco()
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            INSERT INTO prescricao (id_paciente, id_medicamento, dosagem_fixa, dosagem_diaria, observacao)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (id_paciente, id_medicamento, dosagem_fixa, dosagem_diaria, observacao))
+            INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao))
         conn.commit()
     except sqlite3.IntegrityError:
-        print("Prescrição já cadastrada.")
+        print("Estoque já cadastrada.")
     finally:
         conn.close()
 
@@ -131,10 +123,23 @@ while True:
         case 1:
             nome = input("Digite o nome do paciente: ")
             obs = input("Digite uma observação: ")
+            inserir_paciente(nome, obs)
             id_paciente = inserir_paciente(nome, obs)
-            nome_medicamento = insert ('Digite o nome do medicamento: ')
-            id_medicamento = buscar_medicamento_por_nome(nome_medicamento)
-
+            x = int(input("Quantos medicamentos o paciente faz uso? "))
+            for i in range(x):
+                print(f"Medicamento {i+1}:")
+                nome = input("Digite o nome do medicamento: ")
+                id_medicamento = buscar_medicamento_por_nome(nome)
+                while id_medicamento is None:
+                    print("Medicamento não encontrado.")
+                    nome = input("Digite o nome do medicamento: ")
+                    id_medicamento = buscar_medicamento_por_nome(nome)
+                dosagem_diaria = input("Digite a dosagem diária: ")
+                miligrama = input("Digite a dosagem em miligramas: ")
+                quantidade_atual = input("Digite a quantidade atual: ")
+                alerta = input("Digite com quantos comprimidos você gostaria de ser alertado: ")
+                observacao = input("Digite uma observação: ")
+                inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao)
 
         case 2:
             id_paciente = int(input("Digite o ID do paciente: "))
