@@ -2,7 +2,7 @@ import sqlite3
 import os
 import datetime
 
-DB_PATH = r"C:\Users\clara\OneDrive\Documentos\Marcos Andre\Programas Python\controle_medicamentos.db"
+DB_PATH = r"\controle_medicamentos.db"
 
 
 def conectar_banco():
