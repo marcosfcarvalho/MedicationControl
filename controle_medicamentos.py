@@ -2,7 +2,7 @@ import sqlite3
 import os
 import datetime
 
-DB_PATH = r"D:\programas em python\controle_medicamentos.db"
+DB_PATH = r"C:\Users\clara\OneDrive\Documentos\Marcos Andre\Programas Python\controle_medicamentos.db"
 
 
 def conectar_banco():
@@ -530,8 +530,11 @@ while True:
 
         case 3:
 
-            print("1- Consultar medicamentos")
-            print("2- Consultar pacientes")
+            print("""
+                     1- Consultar medicamentos
+                     2- Consultar pacientes
+                     3- Consultar medicamentos por paciente
+                  """)
             opcao_consulta = int(input("Escolha uma opção: "))
             if opcao_consulta == 1:
                 consultar_medicamntos()
@@ -539,6 +542,14 @@ while True:
 
             elif opcao_consulta == 2:
                 todos_medicamento_paciente()
+
+            elif opcao_consulta == 3:
+                nome_paciente = input("Digite o nome do paciente: ")
+                id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
+                if id_paciente is None:
+                    print("Paciente não encontrado.")
+                    break
+                consultar_medicamentos_por_paciente(id_paciente)
 
             else:
                 print("Opção inválida!")
