@@ -1,8 +1,10 @@
 import sqlite3
 import os
 import datetime
+import time
+from datetime import datetime
 
-DB_PATH = r"\controle_medicamentos.db"
+DB_PATH = r"controle_medicamentos.db"
 
 
 def conectar_banco():
@@ -34,7 +36,6 @@ def criar_tabela():
             id_paciente INTEGER NOT NULL,
             id_medicamento INTEGER NOT NULL,
             dosagem_diaria INTEGER not null default 1,
-            miligrama REAL not null CHECK(miligrama >= 0),
             quantidade_atual INT NOT NULL CHECK(quantidade_atual >= 0),
             alerta INT NOT NULL CHECK(alerta >= 0),
             observacao TEXT,
@@ -42,9 +43,78 @@ def criar_tabela():
             FOREIGN KEY (id_medicamento) REFERENCES medicamento(id_medicamento) on delete cascade
         )
     ''')
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS configuracao (
+            ultima_execucao DATE
+        )
+                   ''')
 
     conn.commit()
     conn.close()
+
+def limpa_tela():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def salvar_data_execucao():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Obtém a data atual do sistema
+    data_atual = datetime.now().strftime("%Y-%m-%d")
+
+    # Verifica se já existe um registro
+    cursor.execute("SELECT COUNT(*) FROM configuracao")
+    existe = cursor.fetchone()[0]
+
+    if existe > 0:
+        # Atualiza a data, pois já há um registro na tabela
+        cursor.execute("UPDATE configuracao SET ultima_execucao = ?", (data_atual,))
+    else:
+        # Insere um novo registro, caso seja a primeira vez que o sistema está rodando
+        cursor.execute("INSERT INTO configuracao (ultima_execucao) VALUES (?)", (data_atual,))
+
+    conn.commit()
+    conn.close()
+
+def calcular_dias_passados():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT ultima_execucao FROM configuracao")
+    resultado = cursor.fetchone()
+    
+    conn.close()
+
+    if resultado:
+        ultima_data = datetime.strptime(resultado[0], "%Y-%m-%d")
+        hoje = datetime.now()
+        dias_passados = (hoje - ultima_data).days
+        return dias_passados
+    else:
+        return 0  # Se não houver registro, assume que é o primeiro dia
+    
+def atualizar_estoque_com_dias():
+    dias_passados = calcular_dias_passados()
+    
+    if dias_passados > 0:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE estoque
+            SET quantidade_atual = CASE 
+                WHEN quantidade_atual - (dosagem_diaria * ?) < 0 THEN 0
+                ELSE quantidade_atual - (dosagem_diaria * ?)
+            END
+            WHERE quantidade_atual > 0
+        """, (dias_passados, dias_passados))
+
+        conn.commit()
+        conn.close()
+
+    salvar_data_execucao()  # Atualiza a última data
+
 
 def inserir_paciente(nome, observacao):
     conn = conectar_banco()
@@ -83,13 +153,41 @@ def consultar_pacientes():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-     SELECT id_paciente, nome, observacao FROM paciente WHERE stts = 1
+     SELECT p.nome AS paciente, 
+               m.nome AS medicamento,  
+               e.quantidade_atual
+        FROM paciente p
+        JOIN estoque e ON p.id_paciente = e.id_paciente
+        JOIN medicamento m ON e.id_medicamento = m.id_medicamento 
+        WHERE p.stts = 1;
      ''')
+    
     pacientes = cursor.fetchall()
-    print("Pacientes cadastrados:\n\n")
-    for paciente in pacientes:
-        print(f"{paciente[0]}- {paciente[1]}, Observação: {paciente[2]}")
     conn.close()
+
+    # Criar um dicionário para organizar os pacientes
+    dados_pacientes = {}
+
+    for registro in pacientes:
+        nome_paciente = registro[0]
+        nome_medicamento = registro[1]
+        quantidade_atual = registro[2]
+        
+        if nome_paciente not in dados_pacientes:
+            dados_pacientes[nome_paciente] = []  # Inicializa a lista de medicamentos para cada paciente
+
+        dados_pacientes[nome_paciente].append((nome_medicamento, quantidade_atual))  # Adiciona medicamentos
+
+    # Exibir os pacientes e seus respectivos medicamentos
+    print("Pacientes cadastrados:\n\n")
+    for paciente, medicamentos in dados_pacientes.items():
+        print(f"# {paciente}")
+        for med in medicamentos:
+            print(f"  -{med[0]}, Quantidade atual: {med[1]}")
+        print("-" * 80)
+
+    if not pacientes:
+        print("Nenhum paciente cadastrado.")
 
 def consultar_pacientes_inativos():
     conn = conectar_banco()
@@ -123,14 +221,14 @@ def consultar_medicamntos():
         print(f"{id_medicamento}- {nome}       |Descrição: {descricao}")
         print("-" * 80)
 
-def inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao):
+def inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao):
     conn = conectar_banco()
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao))
+            INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao))
         conn.commit()
     except sqlite3.IntegrityError:
         print("Estoque já cadastrada.")
@@ -254,15 +352,14 @@ def cadastrar_paciente_com_medicamentos():
                 id_medicamento = buscar_medicamento_por_nome(nome)
 
             dosagem_diaria = input("Digite a quantidade de comprimidos/dia: ")
-            miligrama = float(input("Digite a dosagem em miligramas: "))
             quantidade_atual = int(input("Digite a quantidade atual: "))
             alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado: "))
             observacao = input("Digite uma observação: ")
 
             cursor.execute('''
-                INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao))
+                INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao))
 
         conn.commit()  # Confirma tudo de uma vez
 
@@ -299,7 +396,7 @@ def todos_medicamento_paciente():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT p.nome, m.nome, e.dosagem_diaria, e.miligrama, e.quantidade_atual, e.alerta, e.observacao
+        SELECT p.nome, m.nome, e.dosagem_diaria, e.quantidade_atual, e.alerta, e.observacao
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento where p.stts = 1
@@ -314,8 +411,8 @@ def todos_medicamento_paciente():
     print("\nLista de medicamentos cadastrados:")
     print("-" * 40)
 
-    for nome_paciente, nome_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao in resultados:
-        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Dosagem Diária: {dosagem_diaria} | Miligrama: {miligrama} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Observação: {observacao}")
+    for nome_paciente, nome_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao in resultados:
+        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Dosagem Diária: {dosagem_diaria} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Observação: {observacao}")
         print("-" * 80)
 
 def consultar_medicamentos_por_paciente(id_paciente):
@@ -325,7 +422,6 @@ def consultar_medicamentos_por_paciente(id_paciente):
         SELECT p.nome AS paciente, 
                m.nome AS medicamento, 
                e.dosagem_diaria, 
-               e.miligrama, 
                e.quantidade_atual, 
                e.alerta, 
                e.observacao
@@ -345,9 +441,9 @@ def consultar_medicamentos_por_paciente(id_paciente):
     print(f"\nMedicamentos do paciente {resultados[0][0]}:")
     print("-" * 40)
     for registro in resultados:
-        print(f"Medicamento: {registro[1]}, Dosagem: {registro[2]}x {registro[3]} mg")
-        print(f"Quantidade atual: {registro[4]}, Alerta: {registro[5]} comprimidos restantes")
-        print(f"Observação: {registro[6]}")
+        print(f"Medicamento: {registro[1]}, Dosagem: {registro[2]}x")
+        print(f"Quantidade atual: {registro[3]}, Alerta: {registro[4]} ")
+        print(f"Responsavel: {registro[5]}")
         print("-" * 40)
 
 def obter_id_precrisao(id_paciente, id_medicamento):
@@ -415,17 +511,33 @@ def cadastrar_nova_prescricao(id_paciente):
         return
 
     dosagem_diaria = input("Digite a quantidade de comprimidos/dia o paciente toma: ")
-    miligrama = float(input("Digite a dosagem em miligramas: "))
     quantidade_atual = int(input("Digite a quantidade atual de comprimidos: "))
     alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado(a): "))
     observacao = input("Digite uma observação: ")
 
-    inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, miligrama, quantidade_atual, alerta, observacao)
+    inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
     print("Nova prescrição cadastrada com sucesso!")
 
 criar_tabela()
+data_atual = datetime.now()
+print(f""" 
+    Para que o sistema funcione corretamente, é necessário que a data do computador esteja correta.
+    Caso contrario, vocé irá perder o controle de estoque.
+    O sistema esta marcando que hoje é: {data_atual.strftime("%d/%m/%Y")}
+""") #fui obrigado a deixar a verificação de data a encargo do usuario, pois nem sempre o local onde minha usuaria está tem acesso a internet para verificar a data correta.
+opcao = int(input("     Está correta? (1-sim/2-não):"))
+if opcao == 1:
+    print("Sistema iniciado...")
+    time.sleep(1)
+else:
+    print("Por favor, ajuste a data do computador e reinicie o sistema.")
+    time.sleep(3)
+    exit()
+
 
 while True:
+    atualizar_estoque_com_dias()
+    salvar_data_execucao()
     menuprincipal()
     opcao = int(input("Escolha uma opção: "))
 
@@ -436,9 +548,10 @@ while True:
         case 2:
             nome_paciente = input("Digite o nome do paciente: ")
             id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
-            if id_paciente is None:
-                print("Paciente não encontrado.")
-                break
+            while id_paciente is None:
+                nome_paciente = input("Digite novamente o nome do paciente: ")
+                id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
+                
 
             menu_caso2()
             opcao_ajuste = int(input("Escolha uma opção: "))
@@ -449,10 +562,9 @@ while True:
                     id_estoque = selecionar_medicamento_por_paciente(id_paciente)
                     if id_estoque is None:
                         print("Nenhum medicamento encontrado para esse paciente.")
-                        break
+                        continue
 
                     dosagem_diaria = input("Digite a nova quantidade de comprimidos/dia: ")
-                    miligrama = float(input("Digite a nova dosagem em miligramas: "))
                     quantidade_atual = int(input("Digite a nova quantidade atual: "))
                     alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado: "))
                     observacao = input("Digite uma nova observação: ")
@@ -460,9 +572,9 @@ while True:
                     conn = conectar_banco()
                     cursor = conn.cursor()
                     cursor.execute('''
-                        UPDATE estoque SET dosagem_diaria = ?, miligrama = ?, quantidade_atual = ?, alerta = ?, observacao = ?
+                        UPDATE estoque SET dosagem_diaria = ?, quantidade_atual = ?, alerta = ?, observacao = ?
                         WHERE id_estoque = ?
-                    ''', (dosagem_diaria, miligrama, quantidade_atual, alerta, observacao, id_estoque))
+                    ''', (dosagem_diaria, quantidade_atual, alerta, observacao, id_estoque))
                     conn.commit()
                     conn.close()
                     print("Medicamento ajustado com sucesso!")
@@ -526,7 +638,10 @@ while True:
                     
                 case 6:
                     print("Voltando ao menu principal...")
-                    break
+                    continue
+                case _:
+                    print("Opção inválida!")
+                    continue
 
         case 3:
 
@@ -534,6 +649,7 @@ while True:
                      1- Consultar medicamentos
                      2- Consultar pacientes
                      3- Consultar medicamentos por paciente
+                     4- Consultar paciente com medicamentos proximos de acabar
                   """)
             opcao_consulta = int(input("Escolha uma opção: "))
             if opcao_consulta == 1:
@@ -541,7 +657,7 @@ while True:
 
 
             elif opcao_consulta == 2:
-                todos_medicamento_paciente()
+                consultar_pacientes()
 
             elif opcao_consulta == 3:
                 nome_paciente = input("Digite o nome do paciente: ")
@@ -551,12 +667,33 @@ while True:
                     break
                 consultar_medicamentos_por_paciente(id_paciente)
 
+            elif opcao_consulta == 4:
+                conn = conectar_banco()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT p.nome, m.nome, e.quantidade_atual, e.alerta, e.observacao
+                    FROM paciente p
+                    JOIN estoque e ON p.id_paciente = e.id_paciente
+                    JOIN medicamento m ON e.id_medicamento = m.id_medicamento
+                    WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta)
+                ''')
+                resultados = cursor.fetchall()
+                conn.close()
+
+                if not resultados:
+                    print("Nenhum medicamento próximo de acabar.")
+                else:
+                    print("\nMedicamentos próximos de acabar:")
+                    for nome_paciente, nome_medicamento, quantidade_atual, alerta, observacao in resultados:
+                        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Observação: {observacao}")
+
             else:
                 print("Opção inválida!")
 
 
         case 4:
-            opcao_alta = int(input("Digite 1 para dar alta ou 2 para reativar o prontuário: "))
+            opcao_alta = int(input("Digite 1 para dar alta" \
+            "2 para reativar o prontuário: "))
             if opcao_alta == 1:
                 nome_ativo = input("Digite o nome do paciente: ")
                 id_paciente = buscar_paciente_por_nome_ativos(nome_ativo)
@@ -599,7 +736,6 @@ while True:
             nome = input("Digite o nome do medicamento: ")
             descricao = input("Digite uma descrição: ")
             inserir_medicamento(nome, descricao)
-
         
         case 6:
             print("Saindo do sistema...")
@@ -607,3 +743,6 @@ while True:
             break
         case _:
             print("Opção inválida!")
+            time.sleep(1.5)
+            limpa_tela()
+            continue
