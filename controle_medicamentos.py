@@ -56,6 +56,21 @@ def limpa_tela():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
+def nome_paciente_pelo_id(id_paciente):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT nome FROM paciente WHERE id_paciente = ?
+    ''', (id_paciente,))
+    resultado = cursor.fetchone()
+    conn.close()
+    
+    if resultado:
+        return resultado[0]
+    else:
+        return None
+
+
 def salvar_data_execucao():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -127,10 +142,10 @@ def inserir_paciente(nome, observacao):
         conn.commit()
         # Captura o ID gerado
         id_paciente = cursor.lastrowid
-        print(f"Paciente inserido com sucesso! ID: {id_paciente}")
+        print(f"    Paciente inserido com sucesso! ID: {id_paciente}")
         return id_paciente
     except sqlite3.IntegrityError:
-        print("Paciente já cadastrado.")
+        print(" Paciente já cadastrado.")
         return None
     finally:
         conn.close()
@@ -145,7 +160,7 @@ def inserir_medicamento(nome, descricao):
         ''', (nome, descricao))
         conn.commit()
     except sqlite3.IntegrityError:
-        print("Medicamento já cadastrado.")
+        print(" Medicamento já cadastrado.")
     finally:
         conn.close()
 
@@ -246,29 +261,38 @@ def buscar_medicamento_por_nome(nome_medicamento):
     conn.close()
 
     if not resultados:
-        print("Nenhum medicamento encontrado.")
-        opcao = input("Deseja cadastrar um novo medicamento? (s/n): ").strip().lower()
+        print("     Nenhum medicamento encontrado.")
+        time.sleep(1.5)
+        limpa_tela()
+        opcao = input("    Deseja cadastrar um novo medicamento? (s/n): ").strip().lower()
+        limpa_tela()
         if opcao == 's':
-            nome = input("Digite o nome do novo medicamento: ")
-            descricao = input("Digite uma descrição: ")
+            nome = input("      Digite o nome do novo medicamento: ")
+            descricao = input("     Digite uma descrição: ")
+            limpa_tela()
             inserir_medicamento(nome, descricao)
             return buscar_medicamento_por_nome(nome)  # Busca novamente após cadastrar
         else:
             return None
 
-    print("\nMedicamentos encontrados:")
+    print("\n   Medicamentos encontrados:")
     for i, (id_medicamento, nome) in enumerate(resultados, 1):
-        print(f"{i}. {nome})")
+        print(f"    {i}. {nome})")
 
     while True:
         try:
-            escolha = int(input("\nDigite o número correspondente ao medicamento desejado: "))
+            escolha = int(input("\n     Digite o número correspondente ao medicamento desejado: "))
+            limpa_tela()
             if 1 <= escolha <= len(resultados):
                 return resultados[escolha - 1][0]  # Retorna o ID do medicamento escolhido
             else:
-                print("Opção inválida, tente novamente.")
+                print("     Opção inválida, tente novamente.")
+                time.sleep(1.5)
+                limpa_tela()
         except ValueError:
-            print("Entrada inválida, digite um número.")
+            print("     Entrada inválida, digite um número.")
+            time.sleep(1.5)
+            limpa_tela()
 
 def buscar_paciente_por_nome_ativos(nome_paciente):
     conn = conectar_banco()
@@ -333,28 +357,35 @@ def cadastrar_paciente_com_medicamentos():
     try:
         conn.execute('BEGIN TRANSACTION')  # Inicia uma transação
 
-        nome_p = input("Digite o nome do paciente: ")
-        obs = input("Digite uma observação: ")
+        nome_p = input("    Digite o nome do paciente: ")
+        obs = input("    Digite uma observação: ")
         cursor.execute('''
             INSERT INTO paciente (nome, observacao)
             VALUES (?, ?)
         ''', (nome_p, obs))
         id_paciente = cursor.lastrowid
 
-        x = int(input("Quantos medicamentos o paciente faz uso? "))
+        x = int(input("     Quantos medicamentos o paciente faz uso? Digite um número: "))
+        limpa_tela()
         for i in range(x):
-            print(f"Medicamento {i+1}:")
-            nome = input("Digite o nome do medicamento: ")
+            print(f"\n  Medicamento {i+1}:")
+            nome = input("\n    Digite o nome do medicamento: ")
             id_medicamento = buscar_medicamento_por_nome(nome)
+            limpa_tela()
             while id_medicamento is None:
-                print("Medicamento não encontrado.")
-                nome = input("Digite o nome do medicamento: ")
+                print("     Medicamento não encontrado.")
+                time.sleep(1.5)
+                limpa_tela()
+                nome = input("      Digite o nome do medicamento: ")
                 id_medicamento = buscar_medicamento_por_nome(nome)
+                limpa_tela()
+            limpa_tela()
 
-            dosagem_diaria = input("Digite a quantidade de comprimidos/dia: ")
-            quantidade_atual = int(input("Digite a quantidade atual: "))
-            alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado: "))
-            observacao = input("Digite uma observação: ")
+            dosagem_diaria = input("    Digite a quantidade de comprimidos/dia: ")
+            quantidade_atual = int(input("      Digite a quantidade atual: "))
+            alerta = int(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
+            observacao = input("    Digite o Responsavel: ")
+            limpa_tela()
 
             cursor.execute('''
                 INSERT INTO estoque (id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
@@ -363,17 +394,21 @@ def cadastrar_paciente_com_medicamentos():
 
         conn.commit()  # Confirma tudo de uma vez
 
-        print(f"Paciente {nome_p} e seus medicamentos foram cadastrados com sucesso!")
+        print(f"\n    Paciente {nome_p} e seus medicamentos foram cadastrados com sucesso!")
+        time.sleep(1.5)
+        limpa_tela()
 
     except Exception as e:
         conn.rollback()  # Cancela tudo em caso de erro
-        print(f"Erro ao cadastrar paciente e medicamentos: {e}")
+        print(f"\n  Erro ao cadastrar paciente e medicamentos: {e}")
 
     finally:
         conn.close()
 
 def menu_caso2():
     print ("""
+    Menu de Ajustes:
+           
         1- Ajustar medicamento
         2- Reposição de estoque
         3- incluir medicamento
@@ -384,6 +419,8 @@ def menu_caso2():
 
 def menuprincipal():
     print ("""
+    Menu Principal:
+           
           1- Cadastrar novo paciente
           2- Ajustes
           3- consultar medicamentos/pacientes
@@ -459,6 +496,8 @@ def obter_id_precrisao(id_paciente, id_medicamento):
         return resultado[0]
     else:
         print("Nenhuma prescrição encontrada.")
+        time.sleep(1.5)
+        limpa_tela()
         return None
 
 def selecionar_medicamento_por_paciente(id_paciente):
@@ -503,20 +542,26 @@ def cadastrar_nova_prescricao(id_paciente):
     id_medicamento = buscar_medicamento_por_nome(nome_medicamento)
     if id_medicamento is None:
         print("Medicamento não encontrado.")
+        time.sleep(2)
+        limpa_tela()
         return
     # Verifica se o medicamento já está cadastrado para o paciente
     id_estoque = obter_id_precrisao(id_paciente, id_medicamento)
     if id_estoque is not None:
         print("Esse medicamento já está cadastrado para esse paciente.")
+        time.sleep(2)
+        limpa_tela()
         return
 
     dosagem_diaria = input("Digite a quantidade de comprimidos/dia o paciente toma: ")
     quantidade_atual = int(input("Digite a quantidade atual de comprimidos: "))
     alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado(a): "))
-    observacao = input("Digite uma observação: ")
+    observacao = input("Digite o responsavel: ")
 
     inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
-    print("Nova prescrição cadastrada com sucesso!")
+    print("\n\n\nNova prescrição cadastrada com sucesso!")
+    time.sleep(2)
+    limpa_tela()
 
 criar_tabela()
 data_atual = datetime.now()
@@ -527,168 +572,215 @@ print(f"""
 """) #fui obrigado a deixar a verificação de data a encargo do usuario, pois nem sempre o local onde minha usuaria está tem acesso a internet para verificar a data correta.
 opcao = int(input("     Está correta? (1-sim/2-não):"))
 if opcao == 1:
-    print("Sistema iniciado...")
+    print("\n\n     Sistema iniciado...")
     time.sleep(1)
 else:
     print("Por favor, ajuste a data do computador e reinicie o sistema.")
     time.sleep(3)
     exit()
-
+time.sleep(1)
+limpa_tela()
 
 while True:
     atualizar_estoque_com_dias()
     salvar_data_execucao()
     menuprincipal()
-    opcao = int(input("Escolha uma opção: "))
+    opcao = int(input("         Escolha uma opção: "))
+    limpa_tela()
 
     match opcao:
         case 1:
             cadastrar_paciente_com_medicamentos()
-
+        
         case 2:
-            nome_paciente = input("Digite o nome do paciente: ")
+            nome_paciente = input(" Digite o nome do paciente: ")
             id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
+            limpa_tela()
             while id_paciente is None:
-                nome_paciente = input("Digite novamente o nome do paciente: ")
+                print("Paciente não encontrado.")
+                time.sleep(1.5)
+                limpa_tela()
+                nome_paciente = input(" Digite novamente o nome do paciente: ")
                 id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
-                
+                limpa_tela()
+            nome_pac = nome_paciente_pelo_id(id_paciente)
 
-            menu_caso2()
-            opcao_ajuste = int(input("Escolha uma opção: "))
+            while True:
+                print("Paciente selecionado:", nome_pac)
+                menu_caso2()
+                opcao_ajuste = int(input("      Escolha uma opção: "))
+                limpa_tela()
 
-            match opcao_ajuste:
-                case 1:
-                    print(f"Medicamentos do paciente {nome_paciente}:")
-                    id_estoque = selecionar_medicamento_por_paciente(id_paciente)
-                    if id_estoque is None:
-                        print("Nenhum medicamento encontrado para esse paciente.")
-                        continue
+                match opcao_ajuste:
+                    case 1:
+                        print(f"Medicamentos do paciente {nome_paciente}:")
+                        id_estoque = selecionar_medicamento_por_paciente(id_paciente)
+                        if id_estoque is None:
+                            print("Nenhum medicamento encontrado para esse paciente.")
+                            continue
 
-                    dosagem_diaria = input("Digite a nova quantidade de comprimidos/dia: ")
-                    quantidade_atual = int(input("Digite a nova quantidade atual: "))
-                    alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado: "))
-                    observacao = input("Digite uma nova observação: ")
+                        dosagem_diaria = input("    Digite a nova quantidade de comprimidos/dia: ")
+                        quantidade_atual = int(input("  Digite a nova quantidade atual: "))
+                        alerta = int(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
+                        observacao = input("    Digite o Respondavel: ")
+                        limpa_tela()
 
-                    conn = conectar_banco()
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        UPDATE estoque SET dosagem_diaria = ?, quantidade_atual = ?, alerta = ?, observacao = ?
-                        WHERE id_estoque = ?
-                    ''', (dosagem_diaria, quantidade_atual, alerta, observacao, id_estoque))
-                    conn.commit()
-                    conn.close()
-                    print("Medicamento ajustado com sucesso!")
-
-                case 2:
-                    print(f"Medicamentos do paciente {nome_paciente}:")
-                    id_estoque = selecionar_medicamento_por_paciente(id_paciente)
-                    if id_estoque is None:
-                        print("Nenhum medicamento encontrado para esse paciente.")
-                        break
- 
-                    reposicao_estoque = int(input("Digite a quantidade de comprimidos de reposição: "))
-                    
-                    conn = conectar_banco()
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        UPDATE estoque SET quantidade_atual = quantidade_atual + ?
-                        WHERE id_estoque = ?
-                    ''', (reposicao_estoque, id_estoque))
-                    conn.commit()
-                    conn.close()
-                    print("Reposição de estoque realizada com sucesso!")
-
-                case 3:
-                    cadastrar_nova_prescricao(id_paciente)
-
-                case 4:
-                    print(f"Medicamentos do paciente {nome_paciente}:")
-                    id_estoque = selecionar_medicamento_por_paciente(id_paciente)
-                    if id_estoque is None:
-                        print("Medicamento não encontrado.")
-                        break
-                    opcao_certificar = int(input("\nVocê tem certeza que deseja excluir essa prescrição? (1-sim/2-não)"))
-                    if opcao_certificar == 1:
-                        print("Excluindo prescrição...")
                         conn = conectar_banco()
                         cursor = conn.cursor()
                         cursor.execute('''
-                            DELETE FROM estoque WHERE id_estoque = ?
-                        ''', (id_estoque,))
+                            UPDATE estoque SET dosagem_diaria = ?, quantidade_atual = ?, alerta = ?, observacao = ?
+                            WHERE id_estoque = ?
+                        ''', (dosagem_diaria, quantidade_atual, alerta, observacao, id_estoque))
                         conn.commit()
                         conn.close()
-                        print("Prescrição excluída com sucesso!")
-                    else:
-                        print("Exclusão cancelada.")
+                        print(" Medicamento ajustado com sucesso!")
+                        time.sleep(2)
+                        limpa_tela()
+                    
+
+                    case 2:
+                        print(f"Medicamentos do paciente {nome_paciente}:")
+                        id_estoque = selecionar_medicamento_por_paciente(id_paciente)
+                        if id_estoque is None:
+                            print("Nenhum medicamento encontrado para esse paciente.")
+                            
+ 
+                        reposicao_estoque = int(input("Digite a quantidade de comprimidos de reposição: "))
+                    
+                        conn = conectar_banco()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE estoque SET quantidade_atual = quantidade_atual + ?
+                            WHERE id_estoque = ?
+                        ''', (reposicao_estoque, id_estoque))
+                        conn.commit()
+                        conn.close()
+                        print("\n\nReposição de estoque realizada com sucesso!")
+                        time.sleep(2)
+                        limpa_tela()
+                        continue
+
+                    case 3:
+                        cadastrar_nova_prescricao(id_paciente)
+
+                    case 4:
+                        print(f"Medicamentos do paciente {nome_paciente}:")
+                        id_estoque = selecionar_medicamento_por_paciente(id_paciente)
+                        if id_estoque is None:
+                            print("Medicamento não encontrado.")
+                            time.sleep(2)
+                            limpa_tela()
+                            continue
+                        opcao_certificar = int(input("\nVocê tem certeza que deseja excluir essa prescrição? (1-sim/2-não)"))
+                        if opcao_certificar == 1:
+                            print("\n\nExcluindo prescrição...")
+                            conn = conectar_banco()
+                            cursor = conn.cursor()
+                            cursor.execute('''
+                                DELETE FROM estoque WHERE id_estoque = ?
+                            ''', (id_estoque,))
+                            conn.commit()
+                            conn.close()
+                            print("\n\nPrescrição excluída com sucesso!")
+                            time.sleep(2)
+                            limpa_tela()
+                        else:
+                            print("\n\nExclusão cancelada.")
+                            time.sleep(2)
+                            limpa_tela()
+                            continue
+
+                    case 5: 
+                        novo_nome = input("Digite o novo nome do paciente: ")
+                        nova_observacao = input("Digite a nova observação: ")
+
+                        conn = conectar_banco()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE paciente SET nome = ?, observacao = ?
+                            WHERE id_paciente = ?
+                        ''', (novo_nome, nova_observacao, id_paciente))
+                        conn.commit()
+                        conn.close()
+                        print("\n\nNome e observação do paciente atualizados com sucesso!")
+                        time.sleep(2)
+                        limpa_tela()
+                    
+                    case 6:
+                        print("\n\nVoltando ao menu principal...")
+                        time.sleep(1)
+                        limpa_tela()
                         break
+                    case _:
+                        print("\n\nOpção inválida!")
+                        time.sleep(1.5)
+                        limpa_tela()
+                        continue
 
-                case 5: 
-                    novo_nome = input("Digite o novo nome do paciente: ")
-                    nova_observacao = input("Digite a nova observação: ")
+        case 3:
+            while True:
+                print("""
+    Menu de Consultas:
+                  
+        1- Consultar medicamentos
+        2- Consultar pacientes
+        3- Consultar medicamentos por paciente
+        4- Consultar paciente com medicamentos proximos de acabar
+        5- voltar ao menu principal
+                  """)
+                opcao_consulta = int(input("        Escolha uma opção: "))
+                limpa_tela()
 
+                if opcao_consulta == 1:
+                  consultar_medicamntos()
+                  input("\n\nPressione Enter para continuar...")
+                  limpa_tela()
+
+
+                elif opcao_consulta == 2:
+                    consultar_pacientes()
+                    input("\n\nPressione Enter para continuar...")
+                    limpa_tela()
+
+                elif opcao_consulta == 3:
+                    nome_paciente = input("Digite o nome do paciente: ")
+                    id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
+                    if id_paciente is None:
+                        print("Paciente não encontrado.")
+                        break
+                    consultar_medicamentos_por_paciente(id_paciente)
+                    input("\n\nPressione Enter para continuar...")
+                    limpa_tela()
+
+                elif opcao_consulta == 4:
                     conn = conectar_banco()
                     cursor = conn.cursor()
                     cursor.execute('''
-                        UPDATE paciente SET nome = ?, observacao = ?
-                        WHERE id_paciente = ?
-                    ''', (novo_nome, nova_observacao, id_paciente))
-                    conn.commit()
+                        SELECT p.nome, m.nome, e.quantidade_atual, e.alerta, e.observacao
+                        FROM paciente p
+                        JOIN estoque e ON p.id_paciente = e.id_paciente
+                        JOIN medicamento m ON e.id_medicamento = m.id_medicamento
+                        WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta)
+                    ''')
+                    resultados = cursor.fetchall()
                     conn.close()
-                    print("Nome e observação do paciente atualizados com sucesso!")
-                    
-                case 6:
-                    print("Voltando ao menu principal...")
-                    continue
-                case _:
-                    print("Opção inválida!")
-                    continue
 
-        case 3:
+                    if not resultados:
+                        print("Nenhum medicamento próximo de acabar.")
+                    else:
+                        print("\nMedicamentos próximos de acabar:")
+                        for nome_paciente, nome_medicamento, quantidade_atual, alerta, observacao in resultados:
+                            print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Responsavel: {observacao}")
+                        input("\n\nPressione Enter para continuar...")
+                        limpa_tela()
 
-            print("""
-                     1- Consultar medicamentos
-                     2- Consultar pacientes
-                     3- Consultar medicamentos por paciente
-                     4- Consultar paciente com medicamentos proximos de acabar
-                  """)
-            opcao_consulta = int(input("Escolha uma opção: "))
-            if opcao_consulta == 1:
-                consultar_medicamntos()
-
-
-            elif opcao_consulta == 2:
-                consultar_pacientes()
-
-            elif opcao_consulta == 3:
-                nome_paciente = input("Digite o nome do paciente: ")
-                id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
-                if id_paciente is None:
-                    print("Paciente não encontrado.")
+                elif opcao_consulta == 5:
+                    print("\n\nVoltando ao menu principal...")
+                    time.sleep(1)
+                    limpa_tela()
                     break
-                consultar_medicamentos_por_paciente(id_paciente)
-
-            elif opcao_consulta == 4:
-                conn = conectar_banco()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT p.nome, m.nome, e.quantidade_atual, e.alerta, e.observacao
-                    FROM paciente p
-                    JOIN estoque e ON p.id_paciente = e.id_paciente
-                    JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-                    WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta)
-                ''')
-                resultados = cursor.fetchall()
-                conn.close()
-
-                if not resultados:
-                    print("Nenhum medicamento próximo de acabar.")
                 else:
-                    print("\nMedicamentos próximos de acabar:")
-                    for nome_paciente, nome_medicamento, quantidade_atual, alerta, observacao in resultados:
-                        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Observação: {observacao}")
-
-            else:
-                print("Opção inválida!")
+                    print("Opção inválida!")
 
 
         case 4:
@@ -733,16 +825,17 @@ while True:
                 print("Paciente Readimitido.")
 
         case 5:
-            nome = input("Digite o nome do medicamento: ")
-            descricao = input("Digite uma descrição: ")
+            nome = input("  Digite o nome do medicamento: ")
+            descricao = input("   Digite uma descrição: ")
             inserir_medicamento(nome, descricao)
+            limpa_tela()
         
         case 6:
             print("Saindo do sistema...")
             exit()
             break
         case _:
-            print("Opção inválida!")
+            print("\n\n\n       Opção inválida!")
             time.sleep(1.5)
             limpa_tela()
             continue
