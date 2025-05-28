@@ -151,7 +151,7 @@ def atualiza_receita():
             conn = conectar_banco()
             cursor = conn.cursor()
             cursor.execute('''
-                UPDATE estoque SET receita = 'por fazer' WHERE id_estoque = ?
+                UPDATE estoque SET receita = 'por fazer' WHERE id_estoque = ? and (quantidade_atual <= alerta)
             ''', (id_estoque,))
             conn.commit()
             conn.close()
@@ -597,7 +597,7 @@ def consultar_medicamentos_proximos_de_acabar():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT p.id_paciente, p.nome, m.nome, e.observacao, e.receita
+        SELECT p.id_paciente, e.id_medicamento, p.nome, m.nome, e.observacao, e.receita
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento
@@ -612,14 +612,29 @@ def consultar_medicamentos_proximos_de_acabar():
     else:
         print("\nMedicamentos próximos de acabar:")
         id_pacientes = []
-        nome_medicamentos = []
-        for id_paciente, nome_paciente, nome_medicamento, observacao, receita in resultados:
+        id_medicamentos = []
+        for id_paciente, id_medicamento, nome_paciente, nome_medicamento, observacao, receita in resultados:
             print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
             print("-" * 80)
             id_pacientes.append(id_paciente)
-            nome_medicamentos.append(nome_medicamento)
+            id_medicamentos.append(id_medicamento)
 
-        return id_pacientes, nome_medicamentos
+        return id_pacientes, id_medicamentos
+    
+def buscar_medicamento_por_id(id_medicamento):
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT nome FROM medicamento WHERE id_medicamento = ?
+    ''', (id_medicamento,))
+    resultado = cursor.fetchone()
+    conn.close()
+
+    if resultado:
+        return resultado[0]
+    else:
+        print("Medicamento não encontrado.")
+        return None
 
 
 # Início do programa
@@ -853,16 +868,20 @@ while True:
                         if z == 1: 
                             for id_paciente, medicamento in zip(lista_pacientes, lista_medicamentos): 
                                 c = nome_paciente_pelo_id(id_paciente)
-                                s = int(input(f'\n\nA receita de {c} do {medicamento} foi feita? (1-sim/2-não)'))
+                                m = buscar_medicamento_por_id(medicamento)
+                                print(medicamento)
+                                s = int(input(f'\n\nA receita de {c} do {m} foi feita? (1-sim/2-não)'))
                                 if s == 1:
                                     conn = conectar_banco()
                                     cursor = conn.cursor()
                                     cursor.execute('''
-                                        UPDATE estoque SET receita = 'feito' WHERE id_paciente = ?
-                                    ''', (lista_pacientes,))
+                                        UPDATE estoque SET receita = 'feito' WHERE id_paciente = ? and id_medicamento = ?
+                                    ''', (id_paciente, medicamento))
                                     conn.commit()
                                     conn.close()
                                     print("\n\nReceita feita.")
+                                    time.sleep(1.5)
+                                    limpa_tela()
                                 else:
                                     print("\n\nReceita não feita.")
                                     time.sleep(1.5)
@@ -889,17 +908,19 @@ while True:
                         conn.close()
                         if not resultados:
                             print("\nNenhum medicamento com receita feita encontrado.")
+                            time.sleep(2)
+                            limpa_tela()
                         for nome_paciente, nome_medicamento, observacao, receita in resultados:
                             print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
                             print("-" * 80)
+                            input("\n\nPressione Enter para continuar...")
+                            limpa_tela()
                     else:
                         print("\n\nOpção inválida!")
                         time.sleep(1.5)
                         limpa_tela()
                         continue
                         
-                    input("\n\nPressione Enter para continuar...")
-                    limpa_tela()
 
                 elif opcao_consulta == 5:
                     print("\n\nVoltando ao menu principal...")
