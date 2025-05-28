@@ -4,7 +4,7 @@ import datetime
 import time
 from datetime import datetime
 
-DB_PATH = r"controle_medicamentos.db"
+DB_PATH = r"D:\programas em python\controle_medicamentos.db"
 
 
 def conectar_banco():
@@ -35,9 +35,10 @@ def criar_tabela():
             id_estoque INTEGER PRIMARY KEY AUTOINCREMENT,
             id_paciente INTEGER NOT NULL,
             id_medicamento INTEGER NOT NULL,
-            dosagem_diaria INTEGER not null default 1,
-            quantidade_atual INT NOT NULL CHECK(quantidade_atual >= 0),
-            alerta INT NOT NULL CHECK(alerta >= 0),
+            dosagem_diaria REAL not null default 1,
+            quantidade_atual REAL NOT NULL CHECK(quantidade_atual >= 0),
+            alerta REAL NOT NULL CHECK(alerta >= 0),
+            receita text CHECK(receita in ('feito', 'por fazer')) DEFAULT NULL,
             observacao TEXT,
             FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente) on delete cascade,
             FOREIGN KEY (id_medicamento) REFERENCES medicamento(id_medicamento) on delete cascade
@@ -130,6 +131,32 @@ def atualizar_estoque_com_dias():
 
     salvar_data_execucao()  # Atualiza a última data
 
+def atualiza_receita():
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id_estoque, quantidade_atual, alerta, receita
+        FROM estoque
+    ''')
+    resultados = cursor.fetchall()
+    conn.close()
+
+    for linha in resultados:
+        id_estoque = linha[0]
+        quantidade_atual = linha[1]
+        alerta = linha[2]
+        receita = linha[3]
+
+        if quantidade_atual <= alerta and receita is None:
+            conn = conectar_banco()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE estoque SET receita = 'por fazer' WHERE id_estoque = ?
+            ''', (id_estoque,))
+            conn.commit()
+            conn.close()
+
+
 
 def inserir_paciente(nome, observacao):
     conn = conectar_banco()
@@ -211,10 +238,11 @@ def consultar_pacientes_inativos():
      SELECT id_paciente, nome, observacao FROM paciente WHERE stts = 0
      ''')
     pacientes = cursor.fetchall()
-    print("Pacientes cadastrados:\n\n")
+    print("Pacientes em alta:\n\n")
     for paciente in pacientes:
         print(f"{paciente[1]}, Observação: {paciente[2]}")
     conn.close()
+    return pacientes
 
 def consultar_medicamntos():
     conn = conectar_banco()
@@ -381,9 +409,9 @@ def cadastrar_paciente_com_medicamentos():
                 limpa_tela()
             limpa_tela()
 
-            dosagem_diaria = input("    Digite a quantidade de comprimidos/dia: ")
-            quantidade_atual = int(input("      Digite a quantidade atual: "))
-            alerta = int(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
+            dosagem_diaria = float(input("    Digite a quantidade de comprimidos/dia: "))
+            quantidade_atual = float(input("      Digite a quantidade atual: "))
+            alerta = float(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
             observacao = input("    Digite o Responsavel: ")
             limpa_tela()
 
@@ -527,6 +555,8 @@ def selecionar_medicamento_por_paciente(id_paciente):
     while True:
         try:
             escolha = int(input("\nDigite o número correspondente ao medicamento desejado: "))
+            limpa_tela()
+            # Verifica se a escolha está dentro do intervalo válido
             if 1 <= escolha <= len(resultados):
                 return resultados[escolha - 1][0]  # Retorna o ID do estoque selecionado
             else:
@@ -553,15 +583,47 @@ def cadastrar_nova_prescricao(id_paciente):
         limpa_tela()
         return
 
-    dosagem_diaria = input("Digite a quantidade de comprimidos/dia o paciente toma: ")
-    quantidade_atual = int(input("Digite a quantidade atual de comprimidos: "))
-    alerta = int(input("Digite com quantos comprimidos você gostaria de ser alertado(a): "))
+    dosagem_diaria = float(input("Digite a quantidade de comprimidos/dia o paciente toma: "))
+    quantidade_atual = float(input("Digite a quantidade atual de comprimidos: "))
+    alerta = float(input("Digite com quantos comprimidos você gostaria de ser alertado(a): "))
     observacao = input("Digite o responsavel: ")
 
     inserir_estoque(id_paciente, id_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao)
     print("\n\n\nNova prescrição cadastrada com sucesso!")
     time.sleep(2)
     limpa_tela()
+
+def consultar_medicamentos_proximos_de_acabar():
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT p.id_paciente, p.nome, m.nome, e.observacao, e.receita
+        FROM paciente p
+        JOIN estoque e ON p.id_paciente = e.id_paciente
+        JOIN medicamento m ON e.id_medicamento = m.id_medicamento
+        WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta) and e.receita = 'por fazer'
+    ''')
+    resultados = cursor.fetchall()
+    conn.close()
+
+    if not resultados:
+        print("Nenhum medicamento próximo de acabar.")
+        return [], []  # retorna listas vazias para evitar erros
+    else:
+        print("\nMedicamentos próximos de acabar:")
+        id_pacientes = []
+        nome_medicamentos = []
+        for id_paciente, nome_paciente, nome_medicamento, observacao, receita in resultados:
+            print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
+            print("-" * 80)
+            id_pacientes.append(id_paciente)
+            nome_medicamentos.append(nome_medicamento)
+
+        return id_pacientes, nome_medicamentos
+
+
+# Início do programa
+
 
 criar_tabela()
 data_atual = datetime.now()
@@ -573,17 +635,16 @@ print(f"""
 opcao = int(input("     Está correta? (1-sim/2-não):"))
 if opcao == 1:
     print("\n\n     Sistema iniciado...")
-    time.sleep(1)
+    limpa_tela()
 else:
     print("Por favor, ajuste a data do computador e reinicie o sistema.")
     time.sleep(3)
     exit()
-time.sleep(1)
-limpa_tela()
 
 while True:
     atualizar_estoque_com_dias()
     salvar_data_execucao()
+    atualiza_receita()
     menuprincipal()
     opcao = int(input("         Escolha uma opção: "))
     limpa_tela()
@@ -643,18 +704,40 @@ while True:
                         id_estoque = selecionar_medicamento_por_paciente(id_paciente)
                         if id_estoque is None:
                             print("Nenhum medicamento encontrado para esse paciente.")
-                            
+                            break
+                        
+                        limpa_tela()
+                        print("Detalhes do medicamento:\n")
+                        # Exibe os detalhes do medicamento selecionado
+                        conn = conectar_banco()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                              SELECT m.nome, e.quantidade_atual
+                            FROM estoque e
+                            JOIN medicamento m ON e.id_medicamento = m.id_medicamento
+                            WHERE e.id_estoque = ?
+                        ''', (id_estoque,))
+                        resultado = cursor.fetchone()
+                        conn.close()
+                        print(f"{resultado[0]}, Quantidade atual: {resultado[1]}\n\n")
  
                         reposicao_estoque = int(input("Digite a quantidade de comprimidos de reposição: "))
-                    
+
                         conn = conectar_banco()
                         cursor = conn.cursor()
                         cursor.execute('''
                             UPDATE estoque SET quantidade_atual = quantidade_atual + ?
                             WHERE id_estoque = ?
                         ''', (reposicao_estoque, id_estoque))
+
+                        cursor.execute('''
+                            UPDATE estoque
+                            SET receita = NULL
+                            WHERE id_estoque = ? AND quantidade_atual > alerta
+                            ''', (id_estoque,))
                         conn.commit()
                         conn.close()
+
                         print("\n\nReposição de estoque realizada com sucesso!")
                         time.sleep(2)
                         limpa_tela()
@@ -753,26 +836,70 @@ while True:
                     limpa_tela()
 
                 elif opcao_consulta == 4:
-                    conn = conectar_banco()
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        SELECT p.nome, m.nome, e.quantidade_atual, e.alerta, e.observacao
-                        FROM paciente p
-                        JOIN estoque e ON p.id_paciente = e.id_paciente
-                        JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-                        WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta)
-                    ''')
-                    resultados = cursor.fetchall()
-                    conn.close()
+                    receitas_test = int(input("1 - receitas por fazer\n" \
+                    "2 - receitas feitas\n"\
+                    "\nDigite a opção desejada: "
+                    ))
+                    limpa_tela()
+                    if receitas_test == 1:
+                        lista_pacientes, lista_medicamentos = consultar_medicamentos_proximos_de_acabar()
+                        z = int(input("\n\n Deseja declarar receitas como 'feitas'? (1-sim/2-não): "))
+                        if lista_pacientes is None and lista_medicamentos is None:
+                            print("Nenhum medicamento próximo de acabar encontrado.")
+                            time.sleep(2)
+                            limpa_tela()
+                            continue
 
-                    if not resultados:
-                        print("Nenhum medicamento próximo de acabar.")
+                        if z == 1: 
+                            for id_paciente, medicamento in zip(lista_pacientes, lista_medicamentos): 
+                                c = nome_paciente_pelo_id(id_paciente)
+                                s = int(input(f'\n\nA receita de {c} do {medicamento} foi feita? (1-sim/2-não)'))
+                                if s == 1:
+                                    conn = conectar_banco()
+                                    cursor = conn.cursor()
+                                    cursor.execute('''
+                                        UPDATE estoque SET receita = 'feito' WHERE id_paciente = ?
+                                    ''', (lista_pacientes,))
+                                    conn.commit()
+                                    conn.close()
+                                    print("\n\nReceita feita.")
+                                else:
+                                    print("\n\nReceita não feita.")
+                                    time.sleep(1.5)
+                                    limpa_tela()
+                                    continue
+                        else:
+                            print("\n\nVoltando ao menu de consultas...")
+                            time.sleep(1.5)
+                            limpa_tela()
+                            continue
+
+
+                    elif receitas_test == 2:
+                        conn = conectar_banco()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            SELECT p.nome, m.nome, e.observacao, e.receita
+                            FROM paciente p
+                            JOIN estoque e ON p.id_paciente = e.id_paciente
+                            JOIN medicamento m ON e.id_medicamento = m.id_medicamento
+                            WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta) and e.receita = 'feito'
+                        ''')
+                        resultados = cursor.fetchall()
+                        conn.close()
+                        if not resultados:
+                            print("\nNenhum medicamento com receita feita encontrado.")
+                        for nome_paciente, nome_medicamento, observacao, receita in resultados:
+                            print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
+                            print("-" * 80)
                     else:
-                        print("\nMedicamentos próximos de acabar:")
-                        for nome_paciente, nome_medicamento, quantidade_atual, alerta, observacao in resultados:
-                            print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Responsavel: {observacao}")
-                        input("\n\nPressione Enter para continuar...")
+                        print("\n\nOpção inválida!")
+                        time.sleep(1.5)
                         limpa_tela()
+                        continue
+                        
+                    input("\n\nPressione Enter para continuar...")
+                    limpa_tela()
 
                 elif opcao_consulta == 5:
                     print("\n\nVoltando ao menu principal...")
@@ -784,8 +911,8 @@ while True:
 
 
         case 4:
-            opcao_alta = int(input("Digite 1 para dar alta" \
-            "2 para reativar o prontuário: "))
+            opcao_alta = int(input("\n\nDigite 1 para dar alta" \
+            " 2 para reativar o prontuário: "))
             if opcao_alta == 1:
                 nome_ativo = input("Digite o nome do paciente: ")
                 id_paciente = buscar_paciente_por_nome_ativos(nome_ativo)
@@ -794,7 +921,7 @@ while True:
                     break
                 escolha = int(input("Você tem certeza que deseja dar alta? (1-sim/2-não)"))
                 if escolha == 1:       
-                    print("Dando alta ao paciente...")
+                    print("\nDando alta ao paciente...")
                     conn = conectar_banco()
                     cursor = conn.cursor()
                     cursor.execute('''
@@ -802,19 +929,27 @@ while True:
                     ''', (id_paciente,))
                     conn.commit()
                     conn.close()
-                    print("Paciente teve alta.")
+                    print("\nPaciente teve alta.")
+                    time.sleep(2)
+                    limpa_tela()
                 else:
                     print("Alta cancelada.")
                     break
 
             elif opcao_alta == 2:
-                print("pacientes inativos:")
-                consultar_pacientes_inativos()
+                paciente_inativos= consultar_pacientes_inativos()
+                if paciente_inativos is None:
+                    print("Nenhum paciente inativo encontrado.")
+                    time.sleep(2)
+                    limpa_tela()
+                    continue
                 nome_inativo = input("\nDigite o nome do paciente: ")
+                limpa_tela()
                 id_paciente = buscar_paciente_por_nome_inativos(nome_inativo)
                 if id_paciente is None:
                     print("Paciente não encontrado.")
                     break
+                
                 conn = conectar_banco()
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -822,12 +957,16 @@ while True:
                 ''', (id_paciente,))
                 conn.commit()
                 conn.close()
-                print("Paciente Readimitido.")
+                print("\nPaciente Readimitido.")
+                time.sleep(2)
+                limpa_tela()
 
         case 5:
             nome = input("  Digite o nome do medicamento: ")
             descricao = input("   Digite uma descrição: ")
             inserir_medicamento(nome, descricao)
+            print("\n\nMedicamento cadastrado com sucesso!")
+            time.sleep(3)
             limpa_tela()
         
         case 6:
