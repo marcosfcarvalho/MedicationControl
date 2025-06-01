@@ -4,12 +4,14 @@ import datetime
 import time
 from datetime import datetime
 
-DB_PATH = r"D:\programas em python\controle_medicamentos.db"
+DB_PATH = r"C:\Users\clara\OneDrive\Documentos\Marcos Andre\Programas Python\controle_medicamentos.db"
 
 
 def conectar_banco():
     conn = sqlite3.connect(DB_PATH)
     return conn
+
+conectar_banco()
 
 def criar_tabela():
     conn = conectar_banco()
@@ -140,6 +142,8 @@ def atualiza_receita():
     ''')
     resultados = cursor.fetchall()
     conn.close()
+    if not resultados:
+        return
 
     for linha in resultados:
         id_estoque = linha[0]
@@ -177,19 +181,20 @@ def inserir_paciente(nome, observacao):
     finally:
         conn.close()
 
-def inserir_medicamento(nome, descricao):
-    conn = conectar_banco()
-    cursor = conn.cursor()
-    try:
+def inserir_medicamento(nome, descricao, conn=None, cursor=None):
+    if conn is None or cursor is None:
+        conn = conectar_banco()
+        cursor = conn.cursor()
+
         cursor.execute('''
             INSERT INTO medicamento (nome, descricao)
             VALUES (?, ?)
         ''', (nome, descricao))
         conn.commit()
-    except sqlite3.IntegrityError:
-        print(" Medicamento já cadastrado.")
-    finally:
-        conn.close()
+        print(f"Medicamento '{nome}' inserido com sucesso!")
+        time.sleep(1.5)
+        limpa_tela()
+ 
 
 def consultar_pacientes():
     conn = conectar_banco()
@@ -292,16 +297,8 @@ def buscar_medicamento_por_nome(nome_medicamento):
         print("     Nenhum medicamento encontrado.")
         time.sleep(1.5)
         limpa_tela()
-        opcao = input("    Deseja cadastrar um novo medicamento? (s/n): ").strip().lower()
-        limpa_tela()
-        if opcao == 's':
-            nome = input("      Digite o nome do novo medicamento: ")
-            descricao = input("     Digite uma descrição: ")
-            limpa_tela()
-            inserir_medicamento(nome, descricao)
-            return buscar_medicamento_por_nome(nome)  # Busca novamente após cadastrar
-        else:
-            return None
+        return None
+        
 
     print("\n   Medicamentos encontrados:")
     for i, (id_medicamento, nome) in enumerate(resultados, 1):
@@ -321,6 +318,8 @@ def buscar_medicamento_por_nome(nome_medicamento):
             print("     Entrada inválida, digite um número.")
             time.sleep(1.5)
             limpa_tela()
+
+opcao_consulta = 0  # Variável declarada globalmente para ser usada na função buscar_medicamento_por_nome
 
 def buscar_paciente_por_nome_ativos(nome_paciente):
     conn = conectar_banco()
@@ -397,17 +396,20 @@ def cadastrar_paciente_com_medicamentos():
         limpa_tela()
         for i in range(x):
             print(f"\n  Medicamento {i+1}:")
-            nome = input("\n    Digite o nome do medicamento: ")
-            id_medicamento = buscar_medicamento_por_nome(nome)
-            limpa_tela()
-            while id_medicamento is None:
-                print("     Medicamento não encontrado.")
-                time.sleep(1.5)
+            nome_m = input("\n    Digite o nome do medicamento: ")
+            id_medicamento = buscar_medicamento_por_nome(nome_m)
+            if id_medicamento is None:
+                opcao = input("    Deseja cadastrar um novo medicamento? (s/n): ").strip().lower()
                 limpa_tela()
-                nome = input("      Digite o nome do medicamento: ")
-                id_medicamento = buscar_medicamento_por_nome(nome)
-                limpa_tela()
-            limpa_tela()
+                if opcao == 's':
+                    nome_m = input("      Digite o nome do novo medicamento: ")
+                    descricao = input("     Digite uma descrição: ")
+                    limpa_tela()
+                    inserir_medicamento(nome_m, descricao, conn, cursor)
+                    id_medicamento = buscar_medicamento_por_nome(nome_m)
+                    print(f"    Medicamento {id_medicamento}")
+                    time.sleep(4)
+                    
 
             dosagem_diaria = float(input("    Digite a quantidade de comprimidos/dia: "))
             quantidade_atual = float(input("      Digite a quantidade atual: "))
@@ -432,6 +434,7 @@ def cadastrar_paciente_com_medicamentos():
 
     finally:
         conn.close()
+
 
 def menu_caso2():
     print ("""
@@ -824,7 +827,8 @@ while True:
         2- Consultar pacientes
         3- Consultar medicamentos por paciente
         4- Consultar paciente com medicamentos proximos de acabar
-        5- voltar ao menu principal
+        5- consultar pacientes por medicamentos
+        6- voltar ao menu principal
                   """)
                 opcao_consulta = int(input("        Escolha uma opção: "))
                 limpa_tela()
@@ -837,6 +841,21 @@ while True:
 
                 elif opcao_consulta == 2:
                     consultar_pacientes()
+                    conn = conectar_banco()
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT p.nome AS paciente
+                        FROM paciente p
+                        LEFT JOIN estoque e ON p.id_paciente = e.id_paciente
+                        WHERE e.id_paciente IS NULL;
+                    ''')
+                    pacientes_sem_medicamentos = cursor.fetchall()
+                    conn.close()
+                    if pacientes_sem_medicamentos:
+                        print("\nPacientes sem medicamentos cadastrados:")
+                        for paciente in pacientes_sem_medicamentos:
+                            print(f"- {paciente[0]}")
+                            
                     input("\n\nPressione Enter para continuar...")
                     limpa_tela()
 
@@ -923,6 +942,39 @@ while True:
                         
 
                 elif opcao_consulta == 5:
+                    nome_medicamento = input("Digite o nome do medicamento: ")
+                    id_medicamento = buscar_medicamento_por_nome(nome_medicamento)
+                    if id_medicamento is None:
+                        print("Medicamento não encontrado.")
+                        time.sleep(2)
+                        limpa_tela()
+                        continue
+                    conn = conectar_banco()
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT p.nome, m.nome, e.quantidade_atual, e.observacao from estoque as e 
+                        JOIN 
+                        medicamento as m on m.id_medicamento = e.id_medicamento
+                        JOIN 
+                        paciente as p on p.id_paciente = e.id_paciente WHERE m.id_medicamento = ? AND p.stts = 1;
+                    ''', (id_medicamento,))
+                    resultados = cursor.fetchall()
+                    conn.close()
+
+                    if not resultados:
+                        print("Nenhum paciente encontrado com esse medicamento.")
+                        time.sleep(2)
+                        limpa_tela()
+                        continue
+
+                    print("\nPacientes que usam esse medicamento:\n")
+                    for nome_paciente, nome_medicamento, quantidade_atual, observacao in resultados:
+                        print(f"{nome_paciente}, {nome_medicamento}, {quantidade_atual} Responsavel: {observacao}")
+                        print("-" * 80)
+                    
+                    input("\n\nPressione Enter para continuar...")
+                    limpa_tela()
+                elif opcao_consulta == 6:
                     print("\n\nVoltando ao menu principal...")
                     time.sleep(1)
                     limpa_tela()
