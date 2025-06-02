@@ -1,22 +1,14 @@
 Melhorias
 
+1- ALterar os inputs para que não ocorra quebramento do sistema quando o usuario digitar qualquer outra coisa que não seja um numero inteiro.
 
-SELECT p.nome, m.nome, e.quantidade_atual from estoque as e 
-JOIN medicamento as m on m.id_medicamento = e.id_medicamento
-JOIN paciente as p on p.id_paciente = e.id_paciente WHERE m.id_medicamento = ?;
+2- Separar as funções em arquivos diferentes
 
-***Erro na função cadastrar_paciente_com_medicamentos():
+3- Criar uma função para copiar o banco na nuvem 
 
-SELECT p.nome AS paciente, 
-               m.nome AS medicamento,  
-               e.quantidade_atual as estoque
-        FROM paciente p
-        JOIN estoque e ON p.id_paciente = e.id_paciente
-        JOIN medicamento m ON e.id_medicamento = m.id_medicamento 
-        WHERE p.stts = 1;
-		
-SELECT p.nome AS paciente
-FROM paciente p
-LEFT JOIN estoque e ON p.id_paciente = e.id_paciente
-WHERE e.id_paciente IS NULL;
-  
+4- Tornar o sistema em um executavel
+
+****Para quando possuir mais estudo****
+
+1- Tornar o codigo em Orientado a Objetos 
+2- Criar uma interface grafica
