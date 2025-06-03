@@ -3,7 +3,8 @@ import os
 import datetime
 import time
 from datetime import datetime
-from confirma_inteiro import confirma_numero
+from confirma_numero import confirma_int, confirma_float
+
 
 DB_PATH = r"D:\programas em python\controle_medicamentos.db"
 
@@ -394,7 +395,7 @@ def cadastrar_paciente_com_medicamentos():
         ''', (nome_p, obs))
         id_paciente = cursor.lastrowid
 
-        x = int(input("     Quantos medicamentos o paciente faz uso? Digite um número: "))
+        x = confirma_int(input("     Quantos medicamentos o paciente faz uso? Digite um número: "))
         limpa_tela()
         i = 0
         while i < x:
@@ -402,7 +403,7 @@ def cadastrar_paciente_com_medicamentos():
             nome_m = input("\n    Digite o nome do medicamento: ")
             id_medicamento = buscar_medicamento_por_nome(nome_m)
             if id_medicamento is None:
-                opcao = int(input("    Deseja cadastrar um novo medicamento? (1-sim/2-não/3-consultar medicamentos/0-sair): "))
+                opcao = confirma_int(input("    Deseja cadastrar um novo medicamento? (1-sim/2-não/3-consultar medicamentos/0-sair): "))
                 limpa_tela()
                 if opcao == 1:
                     nome_m = input("      Digite o nome do novo medicamento: ")
@@ -504,7 +505,7 @@ def todos_medicamento_paciente():
     print("-" * 40)
 
     for nome_paciente, nome_medicamento, dosagem_diaria, quantidade_atual, alerta, observacao in resultados:
-        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Dosagem Diária: {dosagem_diaria} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Observação: {observacao}")
+        print(f"Paciente: {nome_paciente} | Medicamento: {nome_medicamento} | Dosagem Diária: {dosagem_diaria} | Quantidade Atual: {quantidade_atual} | Alerta: {alerta} | Responsavel: {observacao}")
         print("-" * 80)
 
 def consultar_medicamentos_por_paciente(id_paciente):
@@ -674,7 +675,7 @@ print(f"""
     Caso contrario, vocé irá perder o controle de estoque.
     O sistema esta marcando que hoje é: {data_atual.strftime("%d/%m/%Y")}
 """) #fui obrigado a deixar a verificação de data a encargo do usuario, pois nem sempre o local onde minha usuaria está tem acesso a internet para verificar a data correta.
-opcao = confirma_numero(input("     Está correta? (1-sim/0-não):"))
+opcao = confirma_int(input("     Está correta? (1-sim/0-não):"))
 if opcao == 1:
     print("\n\n     Sistema iniciado...")
     limpa_tela()
@@ -688,7 +689,7 @@ while True:
     salvar_data_execucao()
     atualiza_receita()
     menuprincipal()
-    opcao = int(input("         Escolha uma opção: "))
+    opcao = confirma_int(input("         Escolha uma opção: "))
     limpa_tela()
 
     match opcao:
@@ -711,7 +712,7 @@ while True:
             while True:
                 print("Paciente selecionado:", nome_pac)
                 menu_caso2()
-                opcao_ajuste = int(input("      Escolha uma opção: "))
+                opcao_ajuste = confirma_int(input("      Escolha uma opção: "))
                 limpa_tela()
 
                 match opcao_ajuste:
@@ -722,9 +723,9 @@ while True:
                             print("Nenhum medicamento encontrado para esse paciente.")
                             continue
 
-                        dosagem_diaria = input("    Digite a nova quantidade de comprimidos/dia: ")
-                        quantidade_atual = int(input("  Digite a nova quantidade atual: "))
-                        alerta = int(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
+                        dosagem_diaria = confirma_float(input("    Digite a nova quantidade de comprimidos/dia: "))
+                        quantidade_atual = confirma_float(input("  Digite a nova quantidade atual: "))
+                        alerta = confirma_float(input("    Digite com quantos comprimidos você gostaria de ser alertado: "))
                         observacao = input("    Digite o Respondavel: ")
                         limpa_tela()
 
@@ -763,7 +764,7 @@ while True:
                         conn.close()
                         print(f"{resultado[0]}, Quantidade atual: {resultado[1]}\n\n")
  
-                        reposicao_estoque = int(input("Digite a quantidade de comprimidos de reposição: "))
+                        reposicao_estoque = confirma_int(input("Digite a quantidade de comprimidos de reposição: "))
 
                         conn = conectar_banco()
                         cursor = conn.cursor()
@@ -796,7 +797,7 @@ while True:
                             time.sleep(2)
                             limpa_tela()
                             continue
-                        opcao_certificar = int(input("\nVocê tem certeza que deseja excluir essa prescrição? (1-sim/2-não)"))
+                        opcao_certificar = confirma_int(input("\nVocê tem certeza que deseja excluir essa prescrição? (1-sim/2-não)"))
                         if opcao_certificar == 1:
                             print("\n\nExcluindo prescrição...")
                             conn = conectar_banco()
@@ -854,7 +855,7 @@ while True:
         5- consultar pacientes por medicamentos
         6- voltar ao menu principal
                   """)
-                opcao_consulta = int(input("        Escolha uma opção: "))
+                opcao_consulta = confirma_int(input("        Escolha uma opção: "))
                 limpa_tela()
 
                 if opcao_consulta == 1:
@@ -894,14 +895,14 @@ while True:
                     limpa_tela()
 
                 elif opcao_consulta == 4:
-                    receitas_test = int(input("1 - receitas por fazer\n" \
+                    receitas_test = confirma_int(input("1 - receitas por fazer\n" \
                     "2 - receitas feitas\n"\
                     "\nDigite a opção desejada: "
                     ))
                     limpa_tela()
                     if receitas_test == 1:
                         lista_pacientes, lista_medicamentos = consultar_medicamentos_proximos_de_acabar()
-                        z = int(input("\n\n Deseja declarar receitas como 'feitas'? (1-sim/2-não): "))
+                        z = confirma_int(input("\n\n Deseja declarar receitas como 'feitas'? (1-sim/2-não): "))
                         if lista_pacientes is None and lista_medicamentos is None:
                             print("Nenhum medicamento próximo de acabar encontrado.")
                             time.sleep(2)
@@ -913,7 +914,7 @@ while True:
                                 c = nome_paciente_pelo_id(id_paciente)
                                 m = buscar_medicamento_por_id(medicamento)
                                 print(medicamento)
-                                s = int(input(f'\n\nA receita de {c} do {m} foi feita? (1-sim/2-não)'))
+                                s = confirma_int(input(f'\n\nA receita de {c} do {m} foi feita? (1-sim/2-não)'))
                                 if s == 1:
                                     conn = conectar_banco()
                                     cursor = conn.cursor()
@@ -1008,7 +1009,7 @@ while True:
 
 
         case 4:
-            opcao_alta = int(input("\n\nDigite 1 para dar alta" \
+            opcao_alta = confirma_int(input("\n\nDigite 1 para dar alta" \
             " 2 para reativar o prontuário: "))
             if opcao_alta == 1:
                 nome_ativo = input("Digite o nome do paciente: ")
@@ -1016,7 +1017,7 @@ while True:
                 if id_paciente is None:
                     print("Paciente não encontrado.")
                     break
-                escolha = int(input("Você tem certeza que deseja dar alta? (1-sim/2-não)"))
+                escolha = confirma_int(input("Você tem certeza que deseja dar alta? (1-sim/2-não)"))
                 if escolha == 1:       
                     print("\nDando alta ao paciente...")
                     conn = conectar_banco()
