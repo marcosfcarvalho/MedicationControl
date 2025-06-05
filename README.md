@@ -20,7 +20,7 @@ Antes de usar o MedicationControl, você precisará:
 
 ## 🚀 Instalação
 - Execute a intalação do rclone como ensina nessa serie de vídeos [YouTube](https://www.youtube.com/watch?v=xTpcp5folpw&list=PLhvJ5SM0G08qebM-vI_OpBzCiX3c4rr3L)
-- Ao criar um remote no rclone use o nome gdrive_enf
+- Ao criar um remote no rclone use o nome "**gdrive_enf**"
 - Baixer a pasta medicationcontrol1
 - Esta pronto para usar
 
