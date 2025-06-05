@@ -24,8 +24,8 @@ Antes de usar o MedicationControl, você precisará:
 - Baixer a pasta medicationcontrol1
 - Esta pronto para usar
 
-## 💡 Uso sugerido Clínicas de reabilitação
-
+## 💡 Uso sugerido
+- Clínicas de reabilitação
 - Ambientes onde os medicamentos são adquiridos individualmente
 - Profissionais da saúde que precisam de um controle simples e eficiente
 
