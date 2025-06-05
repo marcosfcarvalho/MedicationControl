@@ -5,7 +5,7 @@ setlocal
 for /f %%i in ('powershell -command "Get-Date -Format yyyy-MM-dd"') do set "data=%%i"
 
 :: Caminho do arquivo original
-set "origem=D:\programas em python\Projeto Clara\controle_medicamentos.db"
+set "origem=D:\programas em python\Projeto Clara\controle_medicamentos.db" 
 
 :: Caminho do arquivo temporário com a data no nome
 set "arquivo_temp=D:\programas em python\Projeto Clara\controle_medicamentos_%data%.db"
