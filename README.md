@@ -19,6 +19,7 @@ Antes de usar o MedicationControl, você precisará:
 - Configuração do [Rclone](https://rclone.org/) para realizar backups automáticos do banco de dados no Google Drive ou outro serviço de nuvem
 
 ## 🚀 Instalação
+1- 
 
 
 ****Melhorias para quando possuir mais estudo****
