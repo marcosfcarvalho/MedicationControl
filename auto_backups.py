@@ -22,7 +22,7 @@ def executar_backup_pelo_python():
         # Envia para o Google Drive usando rclone
         subprocess.run([
             "rclone", "copy", "--progress",
-            arquivo_temp, "gdrive_enf:", "--exclude=/.tmp.driveupload**"
+            arquivo_temp, "gdrive_enf:", "--exclude=/.tmp.driveupload**"  #troque o nome "gdrive_enf:" pelo seu remote rclone ou crie um remote rclone com o mesmo nome
         ], check=True)
 
         print("✅ Backup enviado com sucesso.")
