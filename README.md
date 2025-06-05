@@ -19,7 +19,7 @@ Antes de usar o MedicationControl, você precisará:
 - Configuração do [Rclone](https://rclone.org/) para realizar backups automáticos do banco de dados no Google Drive ou outro serviço de nuvem
 
 ## 🚀 Instalação
-- Execute a intalação do rclone como ensina nessa serie de vídeos (https://www.youtube.com/watch?v=xTpcp5folpw&list=PLhvJ5SM0G08qebM-vI_OpBzCiX3c4rr3L)
+- Execute a intalação do rclone como ensina nessa serie de vídeos [youtube](https://www.youtube.com/watch?v=xTpcp5folpw&list=PLhvJ5SM0G08qebM-vI_OpBzCiX3c4rr3L)
 - Ao criar um remote no rclone use o nome gdrive_enf
 - Baixer a pasta medicationcontrol1
 - Esta pronto para usar
