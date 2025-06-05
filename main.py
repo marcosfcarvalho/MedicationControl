@@ -21,7 +21,7 @@ criar_tabela()
 
 def main():
 
-    senha = "@clara@"
+    senha = "" #coloque aqui a sua senha, caso queira, esta parte ainda esta em desenvolvimento de aprimoramento.
     senha_digitada = getpass.getpass("\n\n        Digite sua senha de acesso : ")
     limpa_tela()
     while senha_digitada != senha:
