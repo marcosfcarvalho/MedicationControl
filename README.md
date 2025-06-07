@@ -16,12 +16,14 @@
 Antes de usar o MedicationControl, você precisará:
 
 - Python 3 instalado (testado com versão 3.12.6)
+- Windows (testado na versão 11)
 - Configuração do [Rclone](https://rclone.org/) para realizar backups automáticos do banco de dados no Google Drive ou outro serviço de nuvem
 
 ## 🚀 Instalação
 - Execute a intalação do rclone como ensina nessa serie de vídeos [YouTube](https://www.youtube.com/watch?v=xTpcp5folpw&list=PLhvJ5SM0G08qebM-vI_OpBzCiX3c4rr3L)
 - Ao criar um remote no rclone use o nome "**gdrive_enf**"
 - Baixer a pasta medicationcontrol1
+- Execute atravéz do medicationcontrou.bat
 - Esta pronto para usar
 
 ## 💡 Uso sugerido
