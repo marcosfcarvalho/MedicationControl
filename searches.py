@@ -27,7 +27,7 @@ def consultar_pacientes():
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento 
-        WHERE p.stts = 1;
+        WHERE p.stts = 1 order by p.nome, m.nome;
      ''')
     
     pacientes = cursor.fetchall()
@@ -61,7 +61,7 @@ def consultar_pacientes_inativos():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-     SELECT id_paciente, nome, observacao FROM paciente WHERE stts = 0
+     SELECT id_paciente, nome, observacao FROM paciente WHERE stts = 0 order by nome;
      ''')
     pacientes = cursor.fetchall()
     print("Pacientes em alta:\n\n")
@@ -74,7 +74,7 @@ def consultar_medicamntos():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT * FROM medicamento
+        SELECT * FROM medicamento order by nome;
     ''')
     resultados = cursor.fetchall()
     conn.close()
@@ -87,14 +87,14 @@ def consultar_medicamntos():
     print("-" * 40)
 
     for id_medicamento, nome, descricao in resultados:
-        print(f"{id_medicamento}- {nome}       |Descrição: {descricao}")
+        print(f"{nome}       |Descrição: {descricao}")
         print("-" * 80)
 
 def buscar_medicamento_por_nome(nome_medicamento):
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id_medicamento, nome FROM medicamento WHERE nome COLLATE NOCASE LIKE ?
+        SELECT id_medicamento, nome FROM medicamento WHERE nome COLLATE NOCASE LIKE ? order by nome;
     ''', ('%' + nome_medicamento + '%',))
 
     resultados = cursor.fetchall()
@@ -130,7 +130,7 @@ def buscar_paciente_por_nome_ativos(nome_paciente):
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id_paciente, nome FROM paciente WHERE nome COLLATE NOCASE LIKE ? AND stts = 1;
+        SELECT id_paciente, nome FROM paciente WHERE nome COLLATE NOCASE LIKE ? AND stts = 1 order by nome;
     ''', ('%' + nome_paciente + '%',))
 
     resultados = cursor.fetchall()
@@ -158,7 +158,7 @@ def buscar_paciente_por_nome_inativos(nome_paciente):
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id_paciente, nome FROM paciente WHERE nome COLLATE NOCASE LIKE ? AND stts = 0;
+        SELECT id_paciente, nome FROM paciente WHERE nome COLLATE NOCASE LIKE ? AND stts = 0 order by nome;
     ''', ('%' + nome_paciente + '%',))
 
     resultados = cursor.fetchall()
@@ -189,7 +189,7 @@ def todos_medicamento_paciente():
         SELECT p.nome, m.nome, e.dosagem_diaria, e.quantidade_atual, e.alerta, e.observacao
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
-        JOIN medicamento m ON e.id_medicamento = m.id_medicamento where p.stts = 1
+        JOIN medicamento m ON e.id_medicamento = m.id_medicamento where p.stts = 1 order by p.nome, m.nome;
     ''')
     resultados = cursor.fetchall()
     conn.close()
@@ -218,7 +218,7 @@ def consultar_medicamentos_por_paciente(id_paciente):
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-        WHERE p.id_paciente = ?;
+        WHERE p.id_paciente = ? order by m.nome;
     ''', (id_paciente,))
     
     resultados = cursor.fetchall()
@@ -262,7 +262,7 @@ def selecionar_medicamento_por_paciente(id_paciente):
         SELECT e.id_estoque, m.nome
         FROM estoque e
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-        WHERE e.id_paciente = ?
+        WHERE e.id_paciente = ? order by m.nome;
     ''', (id_paciente,))
     
     resultados = cursor.fetchall()
@@ -293,11 +293,12 @@ def consultar_medicamentos_proximos_de_acabar():
     conn = conectar_banco()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT p.id_paciente, e.id_medicamento, p.nome, m.nome, e.observacao, e.receita
+        SELECT p.id_paciente, e.id_medicamento, p.nome, m.nome, e.quantidade_atual, e.dosagem_diaria, e.observacao, e.receita
         FROM paciente p
         JOIN estoque e ON p.id_paciente = e.id_paciente
         JOIN medicamento m ON e.id_medicamento = m.id_medicamento
         WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta) and e.receita = 'por fazer'
+        ORDER BY p.nome, m.nome;
     ''')
     resultados = cursor.fetchall()
     conn.close()
@@ -309,8 +310,8 @@ def consultar_medicamentos_proximos_de_acabar():
         print("\nMedicamentos próximos de acabar:")
         id_pacientes = []
         id_medicamentos = []
-        for id_paciente, id_medicamento, nome_paciente, nome_medicamento, observacao, receita in resultados:
-            print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
+        for id_paciente, id_medicamento, nome_paciente, nome_medicamento, quantidade_atual, dosagem_diaria, observacao, receita in resultados:
+            print(f"{nome_paciente} | {nome_medicamento} | Qtd: {quantidade_atual} | Dose: {dosagem_diaria} | Resp: {observacao} | Receita: {receita}")
             print("-" * 80)
             id_pacientes.append(id_paciente)
             id_medicamentos.append(id_medicamento)

@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from confirm_number import confirma_int, confirma_float
 from auto_backups import executar_backup_pelo_python
-from script_db import conectar_banco, criar_tabela
+from script_db import conectar_banco
 from data_time import atualizar_estoque_com_dias, salvar_data_execucao, atualiza_receita
 from clear import limpa_tela
 from inserts import inserir_medicamento, cadastrar_paciente_com_medicamentos, cadastrar_nova_prescricao
@@ -14,20 +14,26 @@ consultar_pacientes, consultar_medicamentos_proximos_de_acabar,buscar_medicament
 import sys
 import getpass
 
-# Redireciona erros para um arquivo de log
-sys.stderr = open("erro_log.txt", "w")
-
-criar_tabela()
 
 def main():
-
-    senha = "" #coloque aqui a sua senha, caso queira, esta parte ainda esta em desenvolvimento de aprimoramento.
+    senha = "@clara@"
     senha_digitada = getpass.getpass("\n\n        Digite sua senha de acesso : ")
     limpa_tela()
     while senha_digitada != senha:
         print(" Senha incorreta. Tente novamente.")
         senha_digitada = getpass.getpass("\n\n        Digite sua senha de acesso : ")
         limpa_tela()
+
+    conn = conectar_banco()
+    cursor = conn.cursor()
+    cursor.execute('''
+        select ultima_execucao from configuracao where ultima_execucao is not null
+    ''') 
+    configuracao = cursor.fetchone()
+    conn.close()
+    # Converte a string em data (assumindo que está no formato ISO: '2025-06-26', por exemplo)
+    configuracao1 = datetime.fromisoformat(configuracao[0]).date()
+
 
     opcao_consulta = 0  # Variável declarada globalmente para ser usada na função buscar_medicamento_por_nome
     
@@ -41,6 +47,11 @@ def main():
     """) #fui obrigado a deixar a verificação de data a encargo do usuario, pois nem sempre o local onde minha usuaria está tem acesso a internet para verificar a data correta.
     opcao = confirma_int(input("     Está correta? (1-sim/0-não):"))
     if opcao == 1:
+        limpa_tela()
+        # Verifica se a data do computador é igual à data da última execução
+        if configuracao1 != datetime.now().date():
+            print("     Ultima execução do sistema:", configuracao[0] if configuracao else "Nenhuma execução registrada.")
+            input("\n\n     Pressione Enter para continuar...")
         print("\n\n     Sistema iniciado...")
         executar_backup_pelo_python()
         limpa_tela()
@@ -49,6 +60,7 @@ def main():
         print("\n\n     Por favor, ajuste a data do computador e reinicie o sistema.")
         time.sleep(3)
         exit()
+
 
     while True:
         atualizar_estoque_com_dias()
@@ -126,13 +138,13 @@ def main():
                                 SELECT m.nome, e.quantidade_atual
                                 FROM estoque e
                                 JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-                                WHERE e.id_estoque = ?
+                                WHERE e.id_estoque = ? order by m.nome;
                             ''', (id_estoque,))
                             resultado = cursor.fetchone()
                             conn.close()
                             print(f"{resultado[0]}, Quantidade atual: {resultado[1]}\n\n")
     
-                            reposicao_estoque = confirma_int(input("Digite a quantidade de comprimidos de reposição: "))
+                            reposicao_estoque = confirma_float(input("Digite a quantidade de comprimidos de reposição: "))
 
                             conn = conectar_banco()
                             cursor = conn.cursor()
@@ -233,7 +245,7 @@ def main():
                             SELECT p.nome AS paciente
                             FROM paciente p
                             LEFT JOIN estoque e ON p.id_paciente = e.id_paciente
-                            WHERE e.id_paciente IS NULL AND p.stts = 1;
+                            WHERE e.id_paciente IS NULL AND p.stts = 1 order by p.nome;
                         ''')
                         pacientes_sem_medicamentos = cursor.fetchall()
                         conn.close()
@@ -248,6 +260,7 @@ def main():
                     elif opcao_consulta == 3:
                         nome_paciente = input("Digite o nome do paciente: ")
                         id_paciente = buscar_paciente_por_nome_ativos(nome_paciente)
+                        limpa_tela()
                         if id_paciente is None:
                             print("Paciente não encontrado.")
                             break
@@ -304,11 +317,11 @@ def main():
                             conn = conectar_banco()
                             cursor = conn.cursor()
                             cursor.execute('''
-                                SELECT p.nome, m.nome, e.observacao, e.receita
+                                SELECT p.nome, m.nome, e.quantidade_atual, e.dosagem_diaria, e.observacao, e.receita
                                 FROM paciente p
                                 JOIN estoque e ON p.id_paciente = e.id_paciente
                                 JOIN medicamento m ON e.id_medicamento = m.id_medicamento
-                                WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta) and e.receita = 'feito'
+                                WHERE p.stts = 1 AND (e.quantidade_atual <= e.alerta) and e.receita = 'feito' order by p.nome;
                             ''')
                             resultados = cursor.fetchall()
                             conn.close()
@@ -316,8 +329,8 @@ def main():
                                 print("\nNenhum medicamento com receita feita encontrado.")
                                 time.sleep(2)
                                 limpa_tela()
-                            for nome_paciente, nome_medicamento, observacao, receita in resultados:
-                                print(f"{nome_paciente} | Medicamento: {nome_medicamento} | Responsavel: {observacao} | Receita: {receita}")
+                            for nome_paciente, nome_medicamento, quantidade_atual, dosagem_diaria, observacao, receita in resultados:
+                                print(f"\n{nome_paciente} | {nome_medicamento} | Qtd: {quantidade_atual} | Dose: {dosagem_diaria} | Resp: {observacao} | Receita: {receita}")
                                 print("-" * 80)
                             input("\n\nPressione Enter para continuar...")
                             limpa_tela()
@@ -343,7 +356,8 @@ def main():
                             JOIN 
                             medicamento as m on m.id_medicamento = e.id_medicamento
                             JOIN 
-                            paciente as p on p.id_paciente = e.id_paciente WHERE m.id_medicamento = ? AND p.stts = 1;
+                            paciente as p on p.id_paciente = e.id_paciente WHERE m.id_medicamento = ? AND p.stts = 1
+                                       order by p.nome;
                         ''', (id_medicamento,))
                         resultados = cursor.fetchall()
                         conn.close()
@@ -376,9 +390,14 @@ def main():
                 if opcao_alta == 1:
                     nome_ativo = input("Digite o nome do paciente: ")
                     id_paciente = buscar_paciente_por_nome_ativos(nome_ativo)
-                    if id_paciente is None:
-                        print("Paciente não encontrado.")
-                        break
+                    while id_paciente is None:
+                        limpa_tela()
+                        print("\n\nPaciente não encontrado.")
+                        nome_ativo = input("\nDigite o nome do paciente: ")
+                        id_paciente = buscar_paciente_por_nome_ativos(nome_ativo)
+
+
+
                     escolha = confirma_int(input("Você tem certeza que deseja dar alta? (1-sim/2-não)"))
                     if escolha == 1:       
                         print("\nDando alta ao paciente...")
@@ -395,7 +414,9 @@ def main():
                         limpa_tela()
                     else:
                         print("Alta cancelada.")
-                        break
+                        time.sleep(1.5)
+                        limpa_tela()
+                        continue
 
                 elif opcao_alta == 2:
                     paciente_inativos= consultar_pacientes_inativos()
@@ -404,12 +425,12 @@ def main():
                         time.sleep(2)
                         limpa_tela()
                         continue
-                    nome_inativo = input("\nDigite o nome do paciente: ")
+                    nome_inativo = input("\nDigite o nome do paciente ou 0 para sair: ")
                     limpa_tela()
                     id_paciente = buscar_paciente_por_nome_inativos(nome_inativo)
                     if id_paciente is None:
                         print("Paciente não encontrado.")
-                        break
+                        continue
                     
                     conn = conectar_banco()
                     cursor = conn.cursor()

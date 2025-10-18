@@ -141,9 +141,29 @@ def cadastrar_nova_prescricao(id_paciente):
     id_medicamento = buscar_medicamento_por_nome(nome_medicamento)
     if id_medicamento is None:
         print("Medicamento não encontrado.")
-        time.sleep(2)
-        limpa_tela()
-        return
+        print("Deseja cadastrar um novo medicamento?")
+        opcao = confirma_int(input("1 - Sim\n2 - Não\n0 - Sair\nEscolha uma opção: "))
+        if opcao == 1:
+            nome_medicamento = input("Digite o nome do novo medicamento: ")
+            descricao = input("Digite uma descrição: ")
+            inserir_medicamento(nome_medicamento, descricao)
+            id_medicamento = buscar_medicamento_por_nome(nome_medicamento)
+            if id_medicamento is None:
+                print("Erro ao cadastrar o medicamento.")
+                time.sleep(2)
+                limpa_tela()
+                return
+        elif opcao == 2:
+            print("Medicamento não cadastrado.")
+            time.sleep(2)
+            limpa_tela()
+            return
+        elif opcao == 0:
+            print("Saindo do cadastro de prescrição...")
+            time.sleep(1.5)
+            limpa_tela()
+            return
+        
     # Verifica se o medicamento já está cadastrado para o paciente
     id_estoque = obter_id_precrisao(id_paciente, id_medicamento)
     if id_estoque is not None:
